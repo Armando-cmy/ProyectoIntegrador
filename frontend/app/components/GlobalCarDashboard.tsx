@@ -1,19 +1,64 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AuthApiError, getCurrentUser, logout } from "../services/auth.service";
+import type { UserProfile } from "../models/auth";
 import Sidebar, { type SectionId } from "./Sidebar";
 import VehicleCatalog from "./VehicleCatalog";
 import { products, type Product, type Vehicle } from "./catalog-data";
 import { ProductCatalog } from "./ProductCatalog";
 import ReservationPanel, { type CartItem, type Reservation } from "./ReservationPanel";
+import UserManagementPanel from "./UserManagementPanel";
+import useLoginTheme from "../hooks/useLoginTheme";
+import ThemeToggle from "./login/ThemeToggle";
 
 const categoryNames = ["Repuestos", "Accesorios", "Asientos para bebés"] as const;
 
 export default function GlobalCarDashboard() {
+  const router = useRouter();
+  const { theme, toggleTheme } = useLoginTheme();
   const [activeSection, setActiveSection] = useState<SectionId>("inicio");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getCurrentUser()
+      .then((profile) => {
+        if (isMounted) setUser(profile);
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) return;
+        if (error instanceof AuthApiError && error.status === 401) {
+          router.replace("/");
+          return;
+        }
+        setAuthMessage(error instanceof Error ? error.message : "No se pudo validar la sesión.");
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingUser(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
+
+  async function handleSignOut() {
+    setAuthMessage(null);
+    try {
+      await logout();
+      router.replace("/");
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : "No se pudo cerrar la sesión.");
+    }
+  }
 
   const compatibleProducts = useMemo(
     () => products.filter((product) => !selectedVehicle || product.compatibleWith.includes(selectedVehicle.id)),
@@ -64,11 +109,16 @@ export default function GlobalCarDashboard() {
     reservaciones: "Reservaciones",
     verificar: "Verificar reserva",
     contacto: "Contacto",
+    usuarios: "Gestión de usuarios",
   };
+  const canManage = user?.rol.trim().toLocaleLowerCase() === "administrador";
 
   function renderContent() {
+    if (activeSection === "usuarios" && canManage) {
+      return <UserManagementPanel />;
+    }
     if (activeSection === "automoviles") {
-      return <VehicleCatalog selectedVehicleId={selectedVehicle?.id ?? null} onSelect={(vehicle) => { setSelectedVehicle(vehicle); setActiveSection("repuestos"); }} />;
+      return <VehicleCatalog selectedVehicleId={selectedVehicle?.id ?? null} onSelect={(vehicle) => { setSelectedVehicle(vehicle); setActiveSection("repuestos"); }} onRemoveSelection={() => setSelectedVehicle(null)} canManage={canManage} />;
     }
     if (activeSection === "repuestos") {
       return <ProductCatalog title="Repuestos compatibles" description="Piezas seleccionadas para el rendimiento y cuidado de tu vehículo." products={compatibleProducts.filter((product) => product.category === "Repuestos")} selectedVehicle={selectedVehicle} onAdd={addToCart} onChooseVehicle={() => setActiveSection("automoviles")} />;
@@ -96,21 +146,45 @@ export default function GlobalCarDashboard() {
           <div className="gc-welcome-art" aria-hidden="true"><span>GC</span><div className="gc-art-line" /></div>
         </section>
         <div className="gc-section-intro gc-home-intro"><div><span className="gc-kicker">UNA SELECCIÓN PARA TI</span><h2>Automóviles destacados</h2></div><button className="gc-text-link" type="button" onClick={() => setActiveSection("automoviles")}>Ver catálogo completo <span>→</span></button></div>
-        <VehicleCatalog selectedVehicleId={selectedVehicle?.id ?? null} onSelect={(vehicle) => { setSelectedVehicle(vehicle); setActiveSection("repuestos"); }} />
+        <VehicleCatalog selectedVehicleId={selectedVehicle?.id ?? null} onSelect={(vehicle) => { setSelectedVehicle(vehicle); setActiveSection("repuestos"); }} onRemoveSelection={() => setSelectedVehicle(null)} canManage={canManage} />
         <div className="gc-home-shortcuts">{categoryNames.map((name) => <button key={name} type="button" onClick={() => setActiveSection(name === "Repuestos" ? "repuestos" : name === "Accesorios" ? "accesorios" : "bebes")}><span className="gc-kicker">DESCUBRE</span><strong>{name}</strong><span>Explorar selección →</span></button>)}</div>
       </div>
     );
   }
 
+  if (isLoadingUser) {
+    return <main className="gc-auth-status" role="status">Validando sesión...</main>;
+  }
+
+  if (authMessage && !user) {
+    return <main className="gc-auth-status gc-auth-error" role="alert">{authMessage}</main>;
+  }
+
+  if (!user) {
+    return <main className="gc-auth-status" role="status">Volviendo al inicio de sesión...</main>;
+  }
+
   return (
-    <main className="gc-app flex min-h-screen">
-      <Sidebar activeSection={activeSection} onNavigate={setActiveSection} />
+    <main className="gc-app flex min-h-screen" data-theme={theme}>
+      <Sidebar
+        activeSection={activeSection}
+        onNavigate={setActiveSection}
+        onSignOut={handleSignOut}
+        showUserManagement={canManage}
+        theme={theme}
+      />
       <div className="gc-main">
         <header className="gc-topbar">
           <div className="gc-breadcrumb">GLOBAL CAR <span>/</span> <strong>{pageTitle[activeSection]}</strong></div>
-          <div className="gc-topbar-actions"><span className="gc-open-status"><i /> ATENCIÓN DISPONIBLE</span><button className="gc-user-avatar" type="button" aria-label="Perfil de usuario">GC</button></div>
+          <div className="gc-topbar-actions">
+            <span className="gc-open-status"><i /> ATENCIÓN DISPONIBLE</span>
+            <span className="gc-auth-profile">{user.nombre} · {user.rol} · {user.sucursal}</span>
+            <ThemeToggle className="gc-theme-toggle" theme={theme} onToggle={toggleTheme} />
+            <button className="gc-user-avatar" type="button" aria-label={`Usuario ${user.nombre}`}>{user.nombre.slice(0, 2).toUpperCase()}</button>
+          </div>
         </header>
         <div className="gc-page-content">
+          {authMessage && <p className="gc-auth-error" role="alert">{authMessage}</p>}
           {renderContent()}
           <footer className="gc-footer"><span>© 2025 GLOBAL CAR</span><span>LA PAZ, BOLIVIA <b>·</b> EXPERIENCIA PREMIUM</span></footer>
         </div>

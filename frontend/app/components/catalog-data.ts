@@ -5,6 +5,7 @@ export type Vehicle = {
   year: number;
   type: string;
   image: string;
+  isFleetVehicle?: boolean;
 };
 
 export type Product = {

@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import GlobalCarLogo from "./brand/GlobalCarLogo";
+import type { LoginTheme } from "../services/theme.service";
 
 export type SectionId =
   | "inicio"
@@ -11,11 +12,15 @@ export type SectionId =
   | "bebes"
   | "reservaciones"
   | "verificar"
-  | "contacto";
+  | "contacto"
+  | "usuarios";
 
 type SidebarProps = {
   activeSection: SectionId;
   onNavigate: (section: SectionId) => void;
+  onSignOut: () => void;
+  showUserManagement: boolean;
+  theme: LoginTheme;
 };
 
 const navigation: { id: SectionId; label: string; icon: string }[] = [
@@ -30,16 +35,20 @@ const navigation: { id: SectionId; label: string; icon: string }[] = [
   { id: "contacto", label: "Contacto", icon: "✉" },
 ];
 
-export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
+export default function Sidebar({ activeSection, onNavigate, onSignOut, showUserManagement, theme }: SidebarProps) {
+  const visibleNavigation = showUserManagement
+    ? [...navigation, { id: "usuarios" as const, label: "Usuarios", icon: "♙" }]
+    : navigation;
+
   return (
     <aside className="gc-sidebar">
       <a className="gc-brand" href="#inicio" onClick={(event) => { event.preventDefault(); onNavigate("inicio"); }}>
-        <span className="gc-brand-mark" aria-hidden="true">✦</span>
+        <GlobalCarLogo theme={theme} className="gc-sidebar-logo" />
         <span>GLOBAL <b>CAR</b><small>PREMIUM AUTOMOTIVE</small></span>
       </a>
       <div className="gc-side-label">MENÚ PRINCIPAL</div>
       <nav className="gc-navigation" aria-label="Menú principal">
-        {navigation.map((item) => (
+        {visibleNavigation.map((item) => (
           <button
             type="button"
             key={item.id}
@@ -60,7 +69,7 @@ export default function Sidebar({ activeSection, onNavigate }: SidebarProps) {
           <span>Estamos para acompañarte.</span>
           <a href="mailto:contacto@globalcar.bo">Contactar asesor <b>↗</b></a>
         </div>
-        <Link className="gc-logout" href="/"><span aria-hidden="true">↗</span> Volver al inicio de sesión</Link>
+        <button className="gc-logout" type="button" onClick={onSignOut}><span aria-hidden="true">↗</span> Cerrar sesión</button>
       </div>
     </aside>
   );

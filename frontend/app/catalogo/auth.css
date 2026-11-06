@@ -1,0 +1,40 @@
+.gc-auth-status {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: #191a19;
+  color: #d4af37;
+  font-size: 14px;
+  text-align: center;
+}
+
+.gc-auth-status.gc-auth-error,
+.gc-auth-error {
+  color: #f0a19a;
+}
+
+.gc-auth-error {
+  margin: 0 0 20px;
+  font-size: 12px;
+}
+
+.gc-auth-profile {
+  color: #b7b4aa;
+  font-size: 10px;
+}
+
+.gc-logout {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .gc-auth-profile {
+    display: none;
+  }
+}

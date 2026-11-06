@@ -25,6 +25,18 @@ export function ProductCatalog({ title, description, products, selectedVehicle, 
     );
   }
 
+  if (selectedVehicle?.isFleetVehicle) {
+    return (
+      <section className="gc-empty-state">
+        <span className="gc-empty-icon">◈</span>
+        <span className="gc-kicker">VEHÍCULO SELECCIONADO</span>
+        <h2>Compatibilidad pendiente</h2>
+        <p>La base de datos de productos todavía no está conectada al modelo de este vehículo. No mostraremos repuestos como compatibles hasta contar con esa relación.</p>
+        <button className="gc-gold-button" type="button" onClick={onChooseVehicle}>VOLVER AL CATÁLOGO <span>→</span></button>
+      </section>
+    );
+  }
+
   const vehicleLabel = selectedVehicle
     ? `${selectedVehicle.brand.toUpperCase()} ${selectedVehicle.model.toUpperCase()}`
     : "VARIOS MODELOS";
